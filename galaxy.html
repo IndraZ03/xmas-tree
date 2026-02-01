@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Januari untuk Azkayang</title>
+    <style>
+        /* Background deep space - Romantic Red/Dark theme */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: radial-gradient(circle at center, #2b0a12 0%, #0d0003 100%); 
+            background-color: #0d0003;
+            font-family: 'Times New Roman', serif; 
+        }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; pointer-events: none;
+            display: flex; flex-direction: column; 
+            align-items: center;
+            padding-top: 40px;
+            box-sizing: border-box;
+            transition: opacity 0.5s ease;
+        }
+        
+        .ui-hidden {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* Loading */
+        #loader {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #0d0003; z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.8s ease-out;
+        }
+        .loader-text {
+            color: #ff99cc; font-size: 14px; letter-spacing: 4px; margin-top: 20px;
+            text-transform: uppercase; font-weight: 100;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 1px solid rgba(255, 153, 204, 0.2); 
+            border-top: 1px solid #ff99cc; border-radius: 50%; 
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Typography */
+        h1 { 
+            color: #ffb7c5; font-size: 36px; margin: 0; font-weight: 400; 
+            letter-spacing: 4px; 
+            text-shadow: 0 0 50px rgba(255, 100, 150, 0.6); 
+            background: linear-gradient(to bottom, #fff, #b76e79);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            font-family: 'Cinzel', 'Times New Roman', serif;
+            opacity: 0.9;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Controls */
+        .controls-wrapper {
+            position: absolute; 
+            top: 30px;          
+            right: 30px;        
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+            z-index: 20;
+            transition: opacity 0.5s ease;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .upload-btn {
+            background: rgba(20, 20, 20, 0.6); 
+            border: 1px solid rgba(212, 175, 55, 0.4); 
+            color: #d4af37; 
+            padding: 10px 20px; 
+            cursor: pointer; 
+            text-transform: uppercase; 
+            letter-spacing: 2px; 
+            font-size: 10px;
+            transition: all 0.4s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+            min-width: 120px;
+        }
+        .upload-btn:hover { 
+            background: #d4af37; 
+            color: #000; 
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+        }
+        
+        .hint-text {
+            color: rgba(212, 175, 55, 0.5);
+            font-size: 9px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            text-align: right;
+            margin-top: 5px;
+        }
+
+        input[type="file"] { display: none; }
+
+        /* Webcam feedback */
+        #webcam-wrapper {
+            position: absolute; 
+            bottom: 30px;       
+            left: 30px;         
+            width: 200px;       
+            height: 140px;
+            border: 1px solid rgba(212, 175, 55, 0.5); 
+            box-shadow: 0 0 20px rgba(0,0,0,0.9);
+            border-radius: 4px;
+            overflow: hidden; 
+            opacity: 1;         
+            pointer-events: none;
+            z-index: 50;
+            background: #000;
+            transition: opacity 0.5s ease; 
+        }
+        
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); 
+        }
+
+        /* Debug info for gestures */
+        /* Romantic Status Display */
+        #debug-info {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            color: rgba(212, 175, 55, 0.8);
+            font-size: 10px;
+            font-family: monospace;
+            background: rgba(0,0,0,0.5);
+            padding: 2px 5px;
+            pointer-events: none;
+        }
+    </style>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+                "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="spinner"></div>
+        <div class="loader-text">Tungguin beb.....</div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <h1>Azcutee in My Universe</h1>
+        
+
+    </div>
+
+    <div id="webcam-wrapper">
+        <video id="webcam" autoplay playsinline></video>
+        <div id="debug-info">Install...</div>
+        <canvas id="webcam-preview" style="display:none;"></canvas>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'; 
+        import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
+
+        // --- 核心配置 ---
+        const CONFIG = {
+            colors: {
+                bg: 0x0d0003, 
+                fog: 0x0d0003,
+                starWhite: 0xffd1dc,
+                planetColors: [
+                    0xff0055, // Red
+                    0xff66aa, // Hot Pink
+                    0xff99cc, // Pink
+                    0xffccdd, // Pale Pink
+                    0xffaa88, // Peach
+                    0xd4af37, // Gold
+                    0xffffff  // White
+                ]
+            },
+            particles: {
+                count: 800,     
+                dustCount: 1500, 
+                snowCount: 2000, // Used for background stars now
+                galaxyRadius: 35    
+            },
+            camera: { z: 60 },
+            
+            preload: {
+                autoScanLocal: true,
+                scanCount: 200, 
+                images: [
+                    './images/1.jpeg', 
+                    './images/2.jpeg',
+                    './images/3.jpeg', 
+                    './images/4.jpeg',
+                    './images/5.jpeg',
+                    './images/6.PNG',
+                    './images/10.jpg',
+                    './images/11.PNG',
+                    './images/12.jpg',
+                    './images/13.jpg',
+                    './images/14.jpg',
+                    './images/18.jpg',
+                    './images/20.jpg',
+                    './images/21.jpg',
+                    './images/22.jpg'
+                ]
+            }
+        };
+
+        const STATE = {
+            mode: 'SINGULARITY', 
+            lastMode: 'SINGULARITY',
+            isExploding: false,
+            explosionTime: 0,
+            focusIndex: -1, 
+            focusTarget: null,
+            hand: { detected: false, x: 0, y: 0 },
+            rotation: { x: 0.4, y: 0 } 
+        };
+
+        let scene, camera, renderer, composer;
+        let mainGroup; 
+        let clock = new THREE.Clock();
+        let particleSystem = []; 
+        let photoMeshGroup = new THREE.Group();
+        let handLandmarker, video;
+        let caneTexture; 
+        let snowSystem; 
+        let singularityCore; // The glowing core
+        const debugInfo = document.getElementById('debug-info');
+
+        async function init() {
+            initThree();
+            setupEnvironment(); 
+            setupLights();
+            createTextures();
+            createParticles(); 
+            createDust();
+            createSnow(); // 新增：创建雪花
+            loadPredefinedImages();
+            setupPostProcessing();
+            setupEvents();
+            await initMediaPipe();
+            
+            const loader = document.getElementById('loader');
+            loader.style.opacity = 0;
+            setTimeout(() => loader.remove(), 800);
+
+            animate();
+        }
+
+        // --- 增强版图片加载系统 ---
+        function loadPredefinedImages() {
+            const loader = new THREE.TextureLoader();
+            CONFIG.preload.images.forEach(url => {
+                loader.load(url, 
+                    (t) => { t.colorSpace = THREE.SRGBColorSpace; addPhotoToScene(t); },
+                    undefined,
+                    (e) => { console.log(`Skipped: ${url}`); }
+                );
+            });
+
+            if (CONFIG.preload.autoScanLocal) {
+                for (let i = 1; i <= CONFIG.preload.scanCount; i++) {
+                    const pathJpg = `./images/(${i}).jpg`;
+                    const pathPng = `./images/(${i}).png`;
+                    loader.load(pathJpg, 
+                        (t) => { t.colorSpace = THREE.SRGBColorSpace; addPhotoToScene(t); },
+                        undefined,
+                        () => {
+                             loader.load(pathPng, 
+                                (t) => { t.colorSpace = THREE.SRGBColorSpace; addPhotoToScene(t); },
+                                undefined,
+                                () => {} 
+                             );
+                        }
+                    );
+                }
+            }
+        }
+
+        function initThree() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            // 设置 Three.js 场景背景为深蓝色，与 CSS 渐变配合
+            scene.background = new THREE.Color(CONFIG.colors.bg);
+            scene.fog = new THREE.FogExp2(CONFIG.colors.fog, 0.015); // 调整雾气浓度
+
+            camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2, CONFIG.camera.z); 
+
+            // 启用 alpha: true 以便未来如果有需要可以透过背景
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ReinhardToneMapping; 
+            renderer.toneMappingExposure = 2.2; 
+            container.appendChild(renderer.domElement);
+
+            mainGroup = new THREE.Group();
+            scene.add(mainGroup);
+        }
+
+        function setupEnvironment() {
+            const pmremGenerator = new THREE.PMREMGenerator(renderer);
+            scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+        }
+
+        function setupLights() {
+            const ambient = new THREE.AmbientLight(0xffcccc, 0.4); 
+            scene.add(ambient);
+
+            const innerLight = new THREE.PointLight(0xff0055, 2, 40);
+            innerLight.position.set(0, 0, 0);
+            mainGroup.add(innerLight);
+
+            const spotRose = new THREE.SpotLight(0xff99bb, 1000);
+            spotRose.position.set(30, 40, 40);
+            spotRose.angle = 0.5;
+            spotRose.penumbra = 0.5;
+            scene.add(spotRose);
+
+            const spotViolet = new THREE.SpotLight(0xcc66ff, 600); 
+            spotViolet.position.set(-30, 20, -30);
+            scene.add(spotViolet);
+            
+            const fill = new THREE.DirectionalLight(0xffddaa, 0.5);
+            fill.position.set(0, 0, 50);
+            scene.add(fill);
+        }
+
+        function setupPostProcessing() {
+            const renderScene = new RenderPass(scene, camera);
+            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+            bloomPass.threshold = 0.65; // 稍微降低阈值让更多东西发光
+            bloomPass.strength = 0.5; 
+            bloomPass.radius = 0.4;
+
+            composer = new EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+        }
+
+        function createTextures() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0,0,128,128);
+            ctx.fillStyle = '#880000'; 
+            ctx.beginPath();
+            for(let i=-128; i<256; i+=32) {
+                ctx.moveTo(i, 0); ctx.lineTo(i+32, 128); ctx.lineTo(i+16, 128); ctx.lineTo(i-16, 0);
+            }
+            ctx.fill();
+            caneTexture = new THREE.CanvasTexture(canvas);
+            caneTexture.repeat.set(3, 3);
+        }
+
+        function createJupiterTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            // Romantic Background
+            const gradient = ctx.createLinearGradient(0, 0, 0, 256);
+            gradient.addColorStop(0, '#ff99cc');
+            gradient.addColorStop(0.5, '#cc6699');
+            gradient.addColorStop(1, '#ff99cc');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 256, 256);
+
+            // Noise/Bands
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            for(let i=0; i<30; i++) {
+                const y = Math.random() * 256;
+                const h = Math.random() * 20 + 5;
+                ctx.fillRect(0, y, 256, h);
+            }
+            
+            // Spot
+            ctx.beginPath();
+            ctx.ellipse(180, 160, 40, 25, 0, 0, Math.PI*2);
+            ctx.fillStyle = 'rgba(255, 50, 100, 0.3)';
+            ctx.fill();
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            return tex;
+        }
+
+        function createSaturnTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            // Rose Gold gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, 128);
+            gradient.addColorStop(0, '#fddde6');
+            gradient.addColorStop(0.5, '#b76e79');
+            gradient.addColorStop(1, '#fddde6');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 128, 128);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createSaturn() {
+            const group = new THREE.Group();
+            
+            // Planet
+            const sphereGeo = new THREE.SphereGeometry(0.8, 32, 32);
+            const mat = new THREE.MeshStandardMaterial({
+                map: createSaturnTexture(),
+                metalness: 0.3, roughness: 0.4
+            });
+            const planet = new THREE.Mesh(sphereGeo, mat);
+            group.add(planet);
+
+            // Ring
+            const ringGeo = new THREE.RingGeometry(1.0, 1.8, 32);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: 0xffcccc,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.6
+            });
+            
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2;
+            group.add(ring);
+            
+            // Tilt the whole planet group
+            group.rotation.z = Math.PI * 0.15;
+            
+            return group;
+        }
+
+        function createHeartGeometry() {
+            const shape = new THREE.Shape();
+            const x = 0, y = 0;
+            shape.moveTo(x + 0.5, y + 0.5);
+            shape.bezierCurveTo(x + 0.5, y + 0.5, x + 0.4, y, x, y);
+            shape.bezierCurveTo(x - 0.6, y, x - 0.6, y + 0.7, x - 0.6, y + 0.7);
+            shape.bezierCurveTo(x - 0.6, y + 1.1, x - 0.2, y + 1.54, x + 0.5, y + 1.9);
+            shape.bezierCurveTo(x + 1.2, y + 1.54, x + 1.6, y + 1.1, x + 1.6, y + 0.7);
+            shape.bezierCurveTo(x + 1.6, y + 0.7, x + 1.6, y, x + 1.0, y);
+            shape.bezierCurveTo(x + 0.7, y, x + 0.5, y + 0.5, x + 0.5, y + 0.5);
+
+            const geometry = new THREE.ExtrudeGeometry(shape, {
+                depth: 0.4, bevelEnabled: true, bevelSegments: 3, steps: 2, bevelSize: 0.1, bevelThickness: 0.1
+            });
+            geometry.center();
+            return geometry;
+        }
+
+        // --- Background Stars System (formerly Snow) ---
+        function createSnow() {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            const sizes = [];
+
+            const loader = new THREE.TextureLoader();
+            const canvas = document.createElement('canvas');
+            canvas.width = 32; canvas.height = 32;
+            const context = canvas.getContext('2d');
+            context.fillStyle = 'white';
+            context.beginPath();
+            context.arc(16, 16, 16, 0, Math.PI * 2);
+            context.fill();
+            const starTexture = new THREE.CanvasTexture(canvas);
+
+            for (let i = 0; i < CONFIG.particles.snowCount; i++) {
+                const r = 50 + Math.random() * 100;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                
+                const x = r * Math.sin(phi) * Math.cos(theta);
+                const y = r * Math.sin(phi) * Math.sin(theta);
+                const z = r * Math.cos(phi);
+                
+                vertices.push(x, y, z);
+                sizes.push(Math.random() * 0.5 + 0.1);
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+
+            const material = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.5,
+                map: starTexture,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                sizeAttenuation: true
+            });
+
+            const snow = new THREE.Points(geometry, material);
+            scene.add(snow);
+            snowSystem = snow;
+        }
+
+        function updateSnow() {
+            if (!snowSystem) return;
+            // Slowly rotate the star field
+            snowSystem.rotation.y += 0.0005;
+        }
+
+        class Particle {
+            constructor(mesh, type, isDust = false) {
+                this.mesh = mesh;
+                this.type = type; // PLANET, COMET, JUPITER, PHOTO, DUST
+                this.isDust = isDust;
+                
+                this.posGalaxy = new THREE.Vector3();
+                this.posScatter = new THREE.Vector3();
+                this.initialPos = new THREE.Vector3(); // For Big Bang calc
+                this.baseScale = mesh.scale.x; 
+
+                const speedMult = (type === 'PHOTO') ? 0.3 : 1.0;
+
+                this.spinSpeed = new THREE.Vector3(
+                    (Math.random() - 0.5) * speedMult,
+                    (Math.random() - 0.5) * speedMult,
+                    (Math.random() - 0.5) * speedMult
+                );
+                
+                // Sparkle attributes
+                this.randomPhase = Math.random() * Math.PI * 2;
+                this.sparkleSpeed = 2.0 + Math.random() * 4.0;
+
+                this.calculatePositions();
+            }
+
+            calculatePositions() {
+                if (this.type === 'PHOTO') {
+                    // Photos orbit in a larger ring
+                    const r = CONFIG.particles.galaxyRadius * 0.8 + Math.random() * 5;
+                    const angle = Math.random() * Math.PI * 2;
+                    this.posGalaxy.set(
+                        Math.cos(angle) * r,
+                        (Math.random() - 0.5) * 2,
+                        Math.sin(angle) * r
+                    );
+
+                    // Scatter position
+                    // User requested "jangan floating di bawah" (don't float below)
+                    // So we bias Y to be mostly positive or centered-up
+                    this.posScatter.set(
+                        (Math.random() - 0.5) * 60,   // Wide spread X
+                        (Math.random() * 30) - 5,     // Y: -5 to +25 (Avoid deep bottom)
+                        (Math.random() - 0.5) * 40    // Z spread
+                    );
+                    return;
+                }
+
+                // Galaxy Spiral Formation
+                const arms = 5;
+                const armIndex = Math.floor(Math.random() * arms);
+                const maxR = CONFIG.particles.galaxyRadius;
+                
+                // Distance from center
+                const rDist = Math.pow(Math.random(), 2) * maxR; 
+                
+                // Spiral Angle
+                const spiralAngle = rDist * 0.5 + (armIndex * (Math.PI * 2 / arms));
+                
+                // Add some randomness to spread the arms
+                const spread = (Math.random() - 0.5) * (rDist / 4);
+                
+                const finalAngle = spiralAngle + spread * 0.2;
+                
+                const x = Math.cos(finalAngle) * rDist;
+                const z = Math.sin(finalAngle) * rDist;
+                const y = (Math.random() - 0.5) * (Math.exp(-rDist * 0.1) * 8); // Thicker in center, thinner at edges
+
+                this.posGalaxy.set(x, y, z);
+
+                // Scatter positions
+                const rScatter = this.isDust ? (20 + Math.random()*30) : (10 + Math.random()*20);
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                this.posScatter.set(
+                    rScatter * Math.sin(phi) * Math.cos(theta),
+                    rScatter * Math.sin(phi) * Math.sin(theta),
+                    rScatter * Math.cos(phi)
+                );
+            }
+
+            update(dt, mode, focusTargetMesh) {
+                let target = this.posGalaxy;
+                let lerpSpeed = 1.5;
+
+                if (mode === 'SINGULARITY') {
+                    // Pull to center
+                    target = new THREE.Vector3(0, 0, 0);
+                    lerpSpeed = 3.0;
+                } else if (mode === 'FLOATING') { // Formerly Scatter/Big Bang state
+                    target = this.posScatter;
+                } else if (mode === 'FOCUS') {
+                    if (this.mesh === focusTargetMesh) {
+                        const desiredWorldPos = new THREE.Vector3(0, 0, 40);
+                        const invMatrix = new THREE.Matrix4().copy(mainGroup.matrixWorld).invert();
+                        target = desiredWorldPos.applyMatrix4(invMatrix);
+                        lerpSpeed = 5.0;
+                    } else {
+                        target = this.posScatter;
+                    }
+                } else if (mode === 'GALAXY') {
+                     target = this.posGalaxy;
+                }
+                
+                // Big Bang Explosion Logic Override
+                if (STATE.isExploding) {
+                    const timeSinceBang = clock.elapsedTime - STATE.explosionTime;
+                    if (timeSinceBang < 2.0) {
+                        // Explode outward vigorously
+                        // Use posScatter as the destination for the explosion
+                        const dir = this.posScatter.clone().normalize();
+                        const explosionForce = 50 * Math.exp(-timeSinceBang * 2); 
+                        
+                        target = this.posScatter.clone().add(dir.multiplyScalar(explosionForce));
+                        lerpSpeed = 5.0;
+                    } else {
+                         STATE.isExploding = false; // End explosion phase
+                    }
+                }
+
+                this.mesh.position.lerp(target, lerpSpeed * dt);
+
+                // Constant rotation for planets
+                if (this.type === 'SATURN') {
+                    // Rotate the specific planet mesh inside if needed, or rotate group
+                    // Group rotation handles the tilt, just rotate Y
+                    this.mesh.rotation.y += this.spinSpeed.y * dt;
+                } else {
+                    this.mesh.rotation.y += this.spinSpeed.y * dt;
+                    this.mesh.rotation.x += this.spinSpeed.x * dt;
+                }
+
+                
+                if (mode === 'FOCUS' && this.mesh === focusTargetMesh) {
+                    this.mesh.lookAt(camera.position); 
+                }
+
+                // --- Scaling & Sparkle ---
+                let s = this.baseScale;
+                
+                // Sparkle Effect (Emissive Pulse)
+                if (mode === 'FOCUS') {
+                     // Disable shine during FOCUS mode to keep photos visible
+                     if (this.mesh.material && this.mesh.material.emissive) {
+                        this.mesh.material.emissiveIntensity = 0.1;
+                     }
+                } 
+                else {
+                    if (this.type === 'STAR') {
+                        // Intense blinking for Stars
+                        const sparkle = Math.sin(clock.elapsedTime * 10 + this.randomPhase) * 0.5 + 0.5;
+                        this.mesh.material.emissiveIntensity = 1.0 + sparkle * 2.0; 
+                        this.mesh.scale.setScalar(this.baseScale * (0.8 + sparkle * 0.4));
+                    }
+                    else if (this.type === 'PLANET' || this.type === 'JUPITER' || this.type === 'LOVE') {
+                         // Strong breathing/shine effect for Planets and Hearts
+                         const sparkleVal = Math.sin(clock.elapsedTime * (this.sparkleSpeed * 0.5) + this.randomPhase);
+                         // Base emissive higher (0.4) + pulse (0.3) -> Range 0.1 to 0.7
+                         const intensity = 0.4 + (sparkleVal * 0.3);
+                         if (this.mesh.material && this.mesh.material.emissive) {
+                            this.mesh.material.emissiveIntensity = Math.max(0.1, intensity);
+                         }
+                    }
+                    else if (this.type !== 'PHOTO' && this.type !== 'DUST' && this.type !== 'SATURN') {
+                         // Other particles (Comets, etc)
+                         const sparkleVal = Math.sin(clock.elapsedTime * this.sparkleSpeed + this.randomPhase);
+                         if (this.mesh.material && this.mesh.material.emissive) {
+                             const intensity = 0.5 + (sparkleVal * 0.2);
+                             this.mesh.material.emissiveIntensity = Math.max(0, intensity);
+                         }
+                    }
+                }
+
+                if (mode === 'SINGULARITY') {
+                    // Compress scale slightly in singularity
+                    s = this.baseScale * 0.1;
+                } else if (this.isDust) {
+                    s = this.baseScale * (0.8 + 0.4 * Math.sin(clock.elapsedTime * 2 + this.mesh.id));
+                } else if (mode === 'FLOATING' && this.type === 'PHOTO') {
+                    s = this.baseScale * 2.5; 
+                } else if (mode === 'FOCUS') {
+                    if (this.mesh === focusTargetMesh) s = 4.5; 
+                    else s = this.baseScale * 0.8; 
+                }
+                
+                // Smooth scale transition
+                this.mesh.scale.lerp(new THREE.Vector3(s,s,s), 4*dt);
+
+                // --- Special Photo Frame Logic ---
+                if (this.type === 'PHOTO') {
+                    // Reduce frame shine in Focus mode
+                    this.mesh.traverse(child => {
+                        if (child.isMesh && child.material && child.material.emissive) {
+                            child.material.emissiveIntensity = (mode === 'FOCUS') ? 0 : 0.2;
+                        }
+                    });
+                }
+            }
+        }
+
+        function updatePhotoLayout() {
+            const photos = particleSystem.filter(p => p.type === 'PHOTO');
+            const count = photos.length;
+            if (count === 0) return;
+            
+            // Re-calculate galaxy ring positions for photos
+            photos.forEach((p, i) => {
+                 const r = CONFIG.particles.galaxyRadius * 0.6 + (Math.random() * 10);
+                 const angle = (i / count) * Math.PI * 2 * 3; // multiple loops
+                 p.posGalaxy.set(
+                    Math.cos(angle) * r,
+                    (Math.random() - 0.5) * 4,
+                    Math.sin(angle) * r
+                 );
+            });
+        }
+
+        function createParticles() {
+            // Geometries
+            const sphereGeo = new THREE.SphereGeometry(1, 32, 32); 
+            const cometGeo = new THREE.IcosahedronGeometry(1, 0); 
+            const heartGeo = createHeartGeometry();
+            
+            // Textures
+            const jupiterTexture = createJupiterTexture();
+            
+            // Materials for Standard Planets
+            const planetMaterials = CONFIG.colors.planetColors.map(c => new THREE.MeshStandardMaterial({
+                color: c,
+                metalness: 0.2, 
+                roughness: 0.6,
+                emissive: c,
+                emissiveIntensity: 0.2
+            }));
+
+            // Material for Jupiter
+            const jupiterMat = new THREE.MeshStandardMaterial({
+                map: jupiterTexture,
+                metalness: 0.1,
+                roughness: 0.4,
+                emissive: 0xaa8866,
+                emissiveIntensity: 0.1
+            });
+
+            // Material for Comets
+            const cometMat = new THREE.MeshStandardMaterial({
+                color: 0xaaccff,
+                metalness: 0.8,
+                roughness: 0.2,
+                emissive: 0x88ccff,
+                emissiveIntensity: 0.8,
+                flatShading: true
+            });
+
+            // Material for Shining Stars
+            const starMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                toneMapped: false // brighter
+            });
+
+            for (let i = 0; i < CONFIG.particles.count; i++) {
+                const rand = Math.random();
+                let mesh, type;
+
+                if (rand < 0.05) {
+                    // Jupiter Type (smaller now)
+                    mesh = new THREE.Mesh(sphereGeo, jupiterMat);
+                    type = 'JUPITER';
+                    const s = 0.8 + Math.random() * 0.4;
+                    mesh.scale.set(s,s,s);
+                } else if (rand < 0.10) {
+                    // Saturn Type
+                    mesh = createSaturn();
+                    type = 'SATURN';
+                    const s = 0.6 + Math.random() * 0.3;
+                    mesh.scale.set(s,s,s);
+                } else if (rand < 0.15) {
+                    // LOVE Planet (Heart)
+                    const mat = planetMaterials[Math.floor(Math.random() * planetMaterials.length)];
+                    mesh = new THREE.Mesh(heartGeo, mat);
+                    type = 'LOVE';
+                    const s = 0.5 + Math.random() * 0.5;
+                    mesh.scale.set(s,s,s);
+                    // Initial rotation correction for look
+                    mesh.rotation.z = Math.PI; 
+                } else if (rand < 0.22) {
+                    // Shining Star
+                    mesh = new THREE.Mesh(sphereGeo, starMat);
+                    type = 'STAR';
+                    const s = 0.1 + Math.random() * 0.15;
+                    mesh.scale.set(s,s,s);
+                } else if (rand < 0.30) {
+                    // Comet Type
+                    mesh = new THREE.Mesh(cometGeo, cometMat);
+                    type = 'COMET';
+                    const s = 0.3 + Math.random() * 0.4;
+                    mesh.scale.set(s * 0.7, s, s * 0.7);
+                } else {
+                    // Standard Planet
+                    const mat = planetMaterials[Math.floor(Math.random() * planetMaterials.length)];
+                    mesh = new THREE.Mesh(sphereGeo, mat);
+                    type = 'PLANET';
+                    const s = 0.2 + Math.random() * 0.6; 
+                    mesh.scale.set(s,s,s);
+                }
+                
+                if (type !== 'SATURN') {
+                    mesh.rotation.set(Math.random()*6, Math.random()*6, Math.random()*6);
+                }
+                
+                mainGroup.add(mesh);
+                particleSystem.push(new Particle(mesh, type, false));
+            }
+            // Singularity Core (White wrapped in Soft Pink)
+            singularityCore = new THREE.Group(); // Use a group to scale both together
+            
+            // Inner White Core
+            const innerGeo = new THREE.SphereGeometry(2.0, 64, 64);
+            const innerMat = new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                emissive: 0xffffff,
+                emissiveIntensity: 10.0, // Intense White
+                toneMapped: false
+            });
+            const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+            singularityCore.add(innerMesh);
+
+            // Outer Soft Pink Aura
+            const outerGeo = new THREE.SphereGeometry(3.0, 64, 64);
+            const outerMat = new THREE.MeshStandardMaterial({
+                color: 0xffb7c5, // Soft Pink
+                emissive: 0xff99cc,
+                emissiveIntensity: 2.0,
+                transparent: true,
+                opacity: 0.5,
+                roughness: 0.1,
+                metalness: 0.1
+            });
+            const outerMesh = new THREE.Mesh(outerGeo, outerMat);
+            singularityCore.add(outerMesh);
+
+            singularityCore.scale.set(0,0,0); // Hide initially
+            mainGroup.add(singularityCore);
+            
+            mainGroup.add(photoMeshGroup);
+        }
+
+
+        function createDust() {
+            const geo = new THREE.TetrahedronGeometry(0.08, 0);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffeebb, transparent: true, opacity: 0.8 });
+            
+            for(let i=0; i<CONFIG.particles.dustCount; i++) {
+                 const mesh = new THREE.Mesh(geo, mat);
+                 mesh.scale.setScalar(0.5 + Math.random());
+                 mainGroup.add(mesh);
+                 particleSystem.push(new Particle(mesh, 'DUST', true));
+            }
+        }
+
+        function addPhotoToScene(texture) {
+            const frameGeo = new THREE.BoxGeometry(1.4, 1.4, 0.05);
+            const frameMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.champagneGold, metalness: 1.0, roughness: 0.1 });
+            const frame = new THREE.Mesh(frameGeo, frameMat);
+
+            let width = 1.2;
+            let height = 1.2;
+            
+            if (texture.image) {
+                const aspect = texture.image.width / texture.image.height;
+                if (aspect > 1) {
+                    height = width / aspect;
+                } else {
+                    width = height * aspect;
+                }
+            }
+
+            const photoGeo = new THREE.PlaneGeometry(width, height);
+            const photoMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+            const photo = new THREE.Mesh(photoGeo, photoMat);
+            photo.position.z = 0.04;
+
+            const group = new THREE.Group();
+            group.add(frame);
+            group.add(photo);
+            
+            frame.scale.set(width/1.2, height/1.2, 1);
+
+            const s = 0.8;
+            group.scale.set(s,s,s);
+            
+            photoMeshGroup.add(group);
+            particleSystem.push(new Particle(group, 'PHOTO', false));
+
+            updatePhotoLayout();
+        }
+        
+        function handleImageUpload(e) {
+            const files = e.target.files;
+            if(!files.length) return;
+            
+            Array.from(files).forEach(f => {
+                if (!f.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    new THREE.TextureLoader().load(ev.target.result, (t) => {
+                        t.colorSpace = THREE.SRGBColorSpace;
+                        addPhotoToScene(t);
+                    });
+                }
+                reader.readAsDataURL(f);
+            });
+        }
+
+        // --- MEDIAPIPE (Adaptive Fix) ---
+        async function initMediaPipe() {
+            video = document.getElementById('webcam');
+            
+            // Adjust to get best available resolution if possible
+            const constraints = {
+                video: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    frameRate: { ideal: 30 }
+                }
+            };
+
+            const vision = await FilesetResolver.forVisionTasks(
+                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+            );
+            handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+                    delegate: "GPU"
+                },
+                runningMode: "VIDEO",
+                numHands: 1
+            });
+            
+            if (navigator.mediaDevices?.getUserMedia) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    video.srcObject = stream;
+                    video.addEventListener("loadeddata", predictWebcam);
+                    debugInfo.innerText = "Webcam active. Show hand.";
+                } catch(e) {
+                    console.warn("Webcam access denied or not available", e);
+                    debugInfo.innerText = "Camera error: " + e.message;
+                    document.getElementById('webcam-wrapper').style.display = 'none';
+                }
+            }
+        }
+
+        let lastVideoTime = -1;
+        async function predictWebcam() {
+            if (video.currentTime !== lastVideoTime) {
+                lastVideoTime = video.currentTime;
+                if (handLandmarker) {
+                    const result = handLandmarker.detectForVideo(video, performance.now());
+                    processGestures(result);
+                }
+            }
+            requestAnimationFrame(predictWebcam);
+        }
+
+        // 修复核心：使用相对比例而非绝对距离
+        function processGestures(result) {
+            if (result.landmarks && result.landmarks.length > 0) {
+                STATE.hand.detected = true;
+                const lm = result.landmarks[0];
+                STATE.hand.x = (lm[9].x - 0.5) * 2; 
+                STATE.hand.y = (lm[9].y - 0.5) * 2;
+
+                const thumb = lm[4]; 
+                const index = lm[8]; 
+                const wrist = lm[0];
+                const middleMCP = lm[9]; // 中指指根 (Knuckle)
+
+                // 1. 计算手掌基准大小 (手腕到中指指根的距离)
+                const handSize = Math.hypot(middleMCP.x - wrist.x, middleMCP.y - wrist.y);
+                if (handSize < 0.02) return;
+
+                // 2. 计算手指尖端的平均伸展距离
+                const tips = [lm[8], lm[12], lm[16], lm[20]];
+                let avgTipDist = 0;
+                tips.forEach(t => avgTipDist += Math.hypot(t.x - wrist.x, t.y - wrist.y));
+                avgTipDist /= 4;
+
+                // 3. 计算捏合距离 (拇指到食指)
+                const pinchDist = Math.hypot(thumb.x - index.x, thumb.y - index.y);
+
+                // 4. 计算相对比例
+                const extensionRatio = avgTipDist / handSize;
+
+
+                const pinchRatio = pinchDist / handSize;
+
+                // Simple Romantic Status Display
+                let statusText = "";
+                if (STATE.mode === 'SINGULARITY') statusText = "💖 Azkaindraverse 💖";
+                else if (STATE.mode === 'FLOATING') statusText = "✨ Meledakk Duarr ✨";
+                else if (STATE.mode === 'FOCUS') statusText = "🌟 Poto potooo 🌟";
+                else statusText = "✨ Azcutee's Universe ✨";
+                
+                debugInfo.innerText = statusText;
+
+                // 5. 状态判定优化
+                // Extension > 1.7 (Palm) -> BIG BANG / FLOATING
+                // Fist (< 1.5) -> SINGULARITY (Collapse)
+                
+                let newMode = STATE.mode;
+
+                if (extensionRatio > 1.7) {
+                    // Open Palm: Floating / Big Bang
+                    newMode = 'FLOATING';
+                    STATE.focusTarget = null;
+                } else if (extensionRatio < 1.5) {
+                    // Fist: Singularity
+                    newMode = 'SINGULARITY';
+                    STATE.focusTarget = null;
+                } else if (pinchRatio < 0.35) {
+                    // Pinch: Focus
+                    if (STATE.mode !== 'FOCUS') {
+                        newMode = 'FOCUS';
+                        const photos = particleSystem.filter(p => p.type === 'PHOTO');
+                        if (photos.length) STATE.focusTarget = photos[Math.floor(Math.random()*photos.length)].mesh;
+                    }
+                } else if (!STATE.hand.detected) {
+                    // Optional: If no hand, maybe return to GALAXY?
+                    // For now, let's keep previous state or default to GALAXY?
+                    // Let's stick to last state or GALAXY if nothing
+                }
+
+                // --- Handle Transitions ---
+                if (newMode !== STATE.mode) {
+                     STATE.lastMode = STATE.mode;
+                     
+                     // Trigger Big Bang when switching FROM Singularity TO Floating
+                     if (STATE.lastMode === 'SINGULARITY' && newMode === 'FLOATING') {
+                         STATE.isExploding = true;
+                         STATE.explosionTime = clock.elapsedTime;
+                         if(composer.passes[1]) composer.passes[1].strength = 3.5; // Big Flash
+                     }
+                     
+                     STATE.mode = newMode;
+                }
+
+            } else {
+                STATE.hand.detected = false;
+                debugInfo.innerText = "Waiting for your touch... 💫";
+            }
+        }
+
+        function setupEvents() {
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                composer.setSize(window.innerWidth, window.innerHeight);
+            });
+            
+            document.getElementById('file-input').addEventListener('change', handleImageUpload);
+            document.getElementById('folder-input').addEventListener('change', handleImageUpload);
+            
+            window.addEventListener('keydown', (e) => {
+                if (e.key.toLowerCase() === 'h') {
+                    const controls = document.querySelector('.controls-wrapper');
+                    if (controls) controls.classList.toggle('ui-hidden');
+                    const webcam = document.getElementById('webcam-wrapper');
+                    if(webcam) webcam.classList.toggle('ui-hidden');
+                }
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+
+            // Rotation Logic
+            // Rotation Logic
+            if (STATE.mode === 'FLOATING' && STATE.hand.detected) {
+                const targetRotY = STATE.hand.x * Math.PI * 0.9; 
+                const targetRotX = STATE.hand.y * Math.PI * 0.25;
+                STATE.rotation.y += (targetRotY - STATE.rotation.y) * 3.0 * dt;
+                STATE.rotation.x += (targetRotX - STATE.rotation.x) * 3.0 * dt;
+
+                // Hide core
+                singularityCore.scale.lerp(new THREE.Vector3(0,0,0), 5*dt);
+
+            } else if (STATE.mode === 'SINGULARITY') {
+                 // Extreme fast spin in singularity
+                 STATE.rotation.y += 10.0 * dt;
+                 STATE.rotation.x = THREE.MathUtils.lerp(STATE.rotation.x, 0, dt);
+                 
+                 // Show Core (Big and Shining)
+                 // Pulse size
+                 const pulse = 1.0 + Math.sin(clock.elapsedTime * 10) * 0.1;
+                 const s = 1.5 * pulse; // Reduced from 4.0
+                 singularityCore.scale.lerp(new THREE.Vector3(s,s,s), 2*dt);
+
+            } else if (STATE.mode === 'FOCUS') {
+                // Hide core
+                singularityCore.scale.lerp(new THREE.Vector3(0,0,0), 10*dt);
+            } else {
+                // Galaxy/Normal
+                let rotSpeed = 0.05;
+                if (STATE.isExploding) {
+                     // Fast spin during explosion
+                     const timeSince = clock.elapsedTime - STATE.explosionTime;
+                     rotSpeed = Math.max(0.05, 5.0 * Math.exp(-timeSince));
+                }
+                
+                STATE.rotation.y += rotSpeed * dt;
+                STATE.rotation.x = THREE.MathUtils.lerp(STATE.rotation.x, 0.4, dt);
+                
+                // Hide core
+                singularityCore.scale.lerp(new THREE.Vector3(0,0,0), 5*dt);
+            }
+
+            mainGroup.rotation.y = STATE.rotation.y;
+            mainGroup.rotation.x = STATE.rotation.x;
+
+            particleSystem.forEach(p => p.update(dt, STATE.mode, STATE.focusTarget));
+            
+            // Bloom Control
+            if (composer.passes[1]) {
+                const bloom = composer.passes[1];
+                if (STATE.mode === 'FOCUS') {
+                    // Turn off bloom in focus so images are clear
+                    bloom.strength = THREE.MathUtils.lerp(bloom.strength, 0, 5 * dt);
+                } else if (STATE.mode === 'SINGULARITY') {
+                    // High bloom for singularity
+                     bloom.strength = THREE.MathUtils.lerp(bloom.strength, 2.0, 2 * dt);
+                } else if (STATE.isExploding) {
+                    // Handled in update logic mostly, but ensure decay
+                     const timeSince = clock.elapsedTime - STATE.explosionTime;
+                     const targetStrength = 0.5 + 3.0 * Math.exp(-timeSince * 2);
+                     bloom.strength = targetStrength;
+                } else {
+                    // Normal
+                    bloom.strength = THREE.MathUtils.lerp(bloom.strength, 0.5, 2 * dt);
+                }
+            }
+
+            // 更新雪花
+            updateSnow();
+
+            composer.render();
+        }
+
+        init();
+    </script>
+</body>
+</html>
